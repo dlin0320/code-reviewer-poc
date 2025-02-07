@@ -5,7 +5,7 @@ from langchain_community.document_loaders import DirectoryLoader
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import PromptTemplate
 from langchain_core.runnables import RunnablePassthrough
-from config import config
+from config import config, OUT_PATH
 from template import Template
 import git
 import os
@@ -40,8 +40,8 @@ class Agent:
         store = FAISS.load_local(folder_path=config.vector_store_path, embeddings=embedding_model, allow_dangerous_deserialization=True)
 
         repo = git.Repo(config.repo_path)
-        main_commit = repo.commit("main")
-        new_commit = repo.commit(repo.active_branch.name)
+        main_commit = repo.commit("temp")
+        new_commit = repo.commit(config.target_branch)
         diff = main_commit.diff(new_commit, create_patch=True)
         diff_str = ""
         for d in diff:
@@ -53,7 +53,7 @@ class Agent:
         template = Template.use(config.template_name)
         prompt = PromptTemplate.from_template(template=template)
         formatted_prompt = prompt.format(description=config.description, diff=diff_str, code=code_str, language=config.feedback_language)
-        with open("out/prompt.txt", "w") as f:
+        with open(f"{OUT_PATH}/prompt.txt", "w") as f:
             f.write(formatted_prompt)
         qa_chain = (
             {
@@ -67,7 +67,7 @@ class Agent:
             | StrOutputParser()
         )
         output = qa_chain.invoke({"description": config.description, "diff": diff_str, "code": code_str, "language": config.feedback_language})
-        with open("out/feedback.md", "w") as f:
+        with open(f"{OUT_PATH}/feedback.md", "w") as f:
             f.write(output)
 
     @staticmethod
